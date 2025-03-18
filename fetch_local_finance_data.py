@@ -447,8 +447,6 @@ def main():
         logger.error("API key not found in environment variables")
         raise ValueError("API key not found in environment variables")
         
-    all_crawled_data = []
-    collection_summary = []
     new_incomplete_dates = []
     
     # Create directory for data if it doesn't exist
@@ -466,18 +464,18 @@ def main():
             
             data, total_count, is_complete = crawl_data(year, specific_date, logger)
             
-            # 로그 출력 및 요약
+            # 로그 출력
             match_status = "✓" if total_count == len(data) else "✗"
             success_rate = f"{(len(data) / total_count * 100):.2f}%" if total_count else "N/A"
             status = "SUCCESS" if is_complete else "INCOMPLETE" if total_count else "NO DATA"
             
             count_logger.info(f"{date_str:10} | {year:4} | {total_count or 0:8} | {len(data):8} | {match_status:5} | {success_rate:11} | {status}")
             
-            # 수집 결과 저장
+            # 일별 데이터 저장
             if data:
                 daily_filename = save_to_pickle(data, f'daily_{year}_{date_str}', logger)
                 save_to_sqlite(data, logger)
-                
+            
             # 불완전 수집 기록
             if not is_complete:
                 new_incomplete_dates.append({
@@ -488,7 +486,8 @@ def main():
                     'last_attempt': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 })
         finally:
-            # 현재 함수 종료
+            if new_incomplete_dates:
+                save_incomplete_dates(new_incomplete_dates)
             sys.exit(0)
     
     # 불완전 수집 데이터 재시도
@@ -519,11 +518,7 @@ def main():
                 if data:
                     daily_filename = save_to_pickle(data, f'retry_daily_{year}_{date_str}', logger)
                     save_to_sqlite(data, logger)
-                    
-                    # 연속된 데이터에도 추가
-                    all_crawled_data.extend(data)
                 
-                # 여전히 불완전하면 목록에 유지
                 if not is_complete:
                     new_incomplete_dates.append({
                         'date': date_str,
@@ -540,23 +535,17 @@ def main():
     
     # Iterate over years
     for year in range(start_year, end_year + 1):
-        year_data = []
-        year_summary = []
-        
         # Set month range based on start_year and end_year
         month_start = start_month if year == start_year else 1
         month_end = end_month if year == end_year else 12
         
         logger.info(f"Processing year {year}, months {month_start}-{month_end}")
         
-        # If --all-days flag is used, collect all days as before
+        # If --all-days flag is used, collect all days
         if args.all_days:
-            # Iterate over execution dates with month constraints
             start_date = datetime(year, month_start, 1)
-            # Calculate end date based on the last day of end_month
             last_day = calendar.monthrange(year, month_end)[1]
             end_date = datetime(year, month_end, last_day)
-            
             current_date = start_date
             
             while current_date <= end_date:
@@ -565,26 +554,11 @@ def main():
                 
                 data, total_count, is_complete = crawl_data(year, current_date, logger)
                 
-                # 간결한 로그 출력
+                # 로그 출력
                 match_status = "✓" if is_complete else "✗"
                 success_rate = f"{(len(data) / total_count * 100):.2f}%" if total_count else "N/A"
                 status = "SUCCESS" if is_complete else "INCOMPLETE" if total_count else "NO DATA"
-                
-                # 한 줄로 결과 로그 기록 
                 count_logger.info(f"{date_str:10} | {year:4} | {total_count or 0:8} | {len(data):8} | {match_status:5} | {success_rate:11} | {status}")
-                
-                # 수집 결과 요약 저장
-                summary_item = {
-                    'year': year,
-                    'date': date_str,
-                    'total_expected': total_count,
-                    'total_collected': len(data),
-                    'success_rate': (len(data) / total_count * 100) if total_count else None,
-                    'is_complete': is_complete,
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                year_summary.append(summary_item)
-                collection_summary.append(summary_item)
                 
                 # 불완전 수집 기록
                 if not is_complete and total_count is not None and len(data) > 0:
@@ -596,13 +570,10 @@ def main():
                         'last_attempt': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 
-                if data:
-                    year_data.extend(data)
-                    
-                # 일일 데이터 백업
+                # 일별 데이터 저장
                 if data:
                     daily_filename = save_to_pickle(data, f'daily_{year}_{date_str}', logger)
-                    logger.info(f"Daily data for {date_str} saved to {daily_filename}")
+                    save_to_sqlite(data, logger)
                 
                 current_date += timedelta(days=1)
         else:
@@ -610,7 +581,6 @@ def main():
             logger.info(f"Collecting data for year {year}, months {month_start}-{month_end}, last day of each month only")
             
             for month in range(month_start, month_end + 1):
-                # Get the last day of the current month
                 current_date = get_last_day_of_month(year, month)
                 date_str = current_date.strftime("%Y-%m-%d")
                 
@@ -618,26 +588,11 @@ def main():
                 
                 data, total_count, is_complete = crawl_data(year, current_date, logger)
                 
-                # 간결한 로그 출력
+                # 로그 출력
                 match_status = "✓" if is_complete else "✗"
                 success_rate = f"{(len(data) / total_count * 100):.2f}%" if total_count else "N/A"
                 status = "SUCCESS" if is_complete else "INCOMPLETE" if total_count else "NO DATA"
-                
-                # 한 줄로 결과 로그 기록 
                 count_logger.info(f"{date_str:10} | {year:4} | {total_count or 0:8} | {len(data):8} | {match_status:5} | {success_rate:11} | {status}")
-                
-                # 수집 결과 요약 저장
-                summary_item = {
-                    'year': year,
-                    'date': date_str,
-                    'total_expected': total_count,
-                    'total_collected': len(data),
-                    'success_rate': (len(data) / total_count * 100) if total_count else None,
-                    'is_complete': is_complete,
-                    'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                year_summary.append(summary_item)
-                collection_summary.append(summary_item)
                 
                 # 불완전 수집 기록
                 if not is_complete and total_count is not None and len(data) > 0:
@@ -649,68 +604,10 @@ def main():
                         'last_attempt': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     })
                 
-                if data:
-                    year_data.extend(data)
-                    
-                # 월말 데이터 백업
+                # 월별 데이터 저장
                 if data:
                     monthly_filename = save_to_pickle(data, f'monthly_{year}_{month:02d}', logger)
-                    logger.info(f"Monthly data for {year}-{month:02d} saved to {monthly_filename}")
-        
-        # 연간 데이터 백업 (부분적일 수 있음)
-        if year_data:
-            # 일부 월만 수집한 경우 파일 이름 변경
-            if year == start_year and month_start > 1 or year == end_year and month_end < 12:
-                if year == start_year and year == end_year and month_start > 1 and month_end < 12:
-                    yearly_filename = save_to_pickle(year_data, f'yearly_{year}_{month_start:02d}-{month_end:02d}', logger)
-                elif year == start_year and month_start > 1:
-                    yearly_filename = save_to_pickle(year_data, f'yearly_{year}_{month_start:02d}-12', logger)
-                elif year == end_year and month_end < 12:
-                    yearly_filename = save_to_pickle(year_data, f'yearly_{year}_01-{month_end:02d}', logger)
-            else:
-                yearly_filename = save_to_pickle(year_data, f'yearly_{year}', logger)
-                
-            logger.info(f"Data for year {year} saved to {yearly_filename}")
-            all_crawled_data.extend(year_data)
-        
-        # 연간 수집 요약 저장
-        if year == start_year and year == end_year and (month_start > 1 or month_end < 12):
-            summary_filename = f'data/collection_summary_{year}_{month_start:02d}-{month_end:02d}.json'
-        elif year == start_year and month_start > 1:
-            summary_filename = f'data/collection_summary_{year}_{month_start:02d}-12.json'
-        elif year == end_year and month_end < 12:
-            summary_filename = f'data/collection_summary_{year}_01-{month_end:02d}.json'
-        else:
-            summary_filename = f'data/collection_summary_{year}.json'
-            
-        with open(summary_filename, 'w', encoding='utf-8') as f:
-            json.dump(year_summary, f, ensure_ascii=False, indent=2)
-        logger.info(f"Collection summary for year {year} saved to {summary_filename}")
-    
-    # 수집 범위 정보 문자열
-    if start_year == end_year:
-        if month_start == 1 and month_end == 12:
-            collection_range = f"{start_year}"
-        else:
-            collection_range = f"{start_year}_{month_start:02d}-{month_end:02d}"
-    else:
-        if month_start == 1 and month_end == 12:
-            collection_range = f"{start_year}-{end_year}"
-        else:
-            collection_range = f"{start_year}_{month_start:02d}-{end_year}_{month_end:02d}"
-
-    # 전체 데이터 SQLite에 저장
-    if all_crawled_data:
-        save_to_sqlite(all_crawled_data, logger)
-        logger.info("All data saved to SQLite database.")
-    else:
-        logger.warning("No data was collected.")
-    
-    # 전체 수집 요약 저장
-    summary_filename = f'data/collection_summary_{collection_range}.json'
-    with open(summary_filename, 'w', encoding='utf-8') as f:
-        json.dump(collection_summary, f, ensure_ascii=False, indent=2)
-    logger.info(f"Overall collection summary saved to {summary_filename}")
+                    save_to_sqlite(data, logger)
     
     # 불완전 수집 날짜 저장
     if new_incomplete_dates:
@@ -725,7 +622,6 @@ if __name__ == "__main__":
         main()
     except KeyboardInterrupt:
         print("\nProcess interrupted by user")
-        # 불완전 데이터 저장 처리
         logger = logging.getLogger(__name__)
         logger.error("Process interrupted by user")
         sys.exit(1)
