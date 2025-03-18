@@ -36,6 +36,7 @@ data/
 
 # Logs
 logs/
+*.log
 
 # IDE files
 .idea/
@@ -61,3 +62,12 @@ nosetests.xml
 coverage.xml
 *.cover
 .hypothesis/
+
+# Analysis results
+*.xlsx
+*.csv
+*.pkl
+
+# Database files
+*.db
+*.db.*
