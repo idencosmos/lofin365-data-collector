@@ -52,6 +52,28 @@ class Config:
             "Content-Type": os.getenv('REQUEST_CONTENT_TYPE', 'application/json'),
             "User-Agent": os.getenv('REQUEST_USER_AGENT', 'Mozilla/5.0')
         }
+        
+        # Analysis Period Configuration
+        self.start_year = 2016
+        self.end_year = 2024
+        
+        # Data Aggregation Configuration
+        self.time_periods = ['monthly', 'quarterly', 'semi_annual']
+        self.dimensions = ['sector', 'region', 'subsector', 'account', 'municipality']
+        
+        # Excel Style Configuration
+        self.excel_styles = {
+            'header_fill': 'CCE5FF',
+            'number_format': '#,##0',
+            'percent_format': '0.00%'
+        }
+        
+        # Chart Configuration
+        self.chart_settings = {
+            'height': 10,
+            'width': 20,
+            'style': 10
+        }
     
     def _get_api_key(self):
         """Retrieve API key from environment variables with validation."""
