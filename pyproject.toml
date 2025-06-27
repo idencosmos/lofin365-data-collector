@@ -1,26 +1,29 @@
-[tool.poetry]
+[project]
 name = "lofin365-data-collector"
 version = "1.0.0"
 description = "Korean Local Finance Data Collector for expenditure data by sub-projects (2016-2024)"
-authors = ["2kwonhee <id@senterie.com>"]
 readme = "README.md"
-license = "MIT"
-repository = "https://github.com/idencosmos/lofin365-data-collector"
+license = { text = "MIT" }
 keywords = ["finance", "data-collection", "korea", "local-government"]
+requires-python = ">=3.12"
+authors = [
+  { name = "2kwonhee", email = "id@senterie.com" },
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-requests = "^2.32.3"
-pandas = "^2.2.3"
-python-dotenv = "^1.0.1"
-ipykernel = "^6.29.5"
-openpyxl = "^3.1.5"
-seaborn = "^0.13.2"
-matplotlib = "^3.10.1"
+dependencies = [
+    "requests~=2.32.3",
+    "pandas~=2.2.3",
+    "python-dotenv~=1.0.1",
+    "ipykernel~=6.29.5",
+    "openpyxl~=3.1.5",
+    "seaborn~=0.13.2",
+    "matplotlib~=3.10.1",
+]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "^8.0.0"
+[project.urls]
+Repository = "https://github.com/idencosmos/lofin365-data-collector"
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.optional-dependencies]
+dev = [
+    "pytest~=8.0.0",
+]
